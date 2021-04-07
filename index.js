@@ -1,83 +1,51 @@
-"use strict";
-var { validateInput } = require("./input-validation");
 
-const defaultEarthRadius = 6378137; // equatorial Earth radius
+(function (root, factory) {
+  "use strict";
+  if (typeof define === 'function' && define.amd) {
+      define('jsb', factory);
+  } else if (typeof module === 'object' && module.exports) {
+      module.exports = factory();
+  } else {
+      root.jsb = factory();
+  }
+}(this, function () {
+  const defaultEarthRadius = 6378137; // equatorial Earth radius
 
-function toRadians(angleInDegrees) {
-  return (angleInDegrees * Math.PI) / 180;
-}
+  function toRadians(angleInDegrees) {
+    return (angleInDegrees * Math.PI) / 180;
+  }
 
-function toDegrees(angleInRadians) {
-  return (angleInRadians * 180) / Math.PI;
-}
+  function toDegrees(angleInRadians) {
+    return (angleInRadians * 180) / Math.PI;
+  }
 
-function offset(c1, distance, earthRadius, bearing) {
-  var lat1 = toRadians(c1[1]);
-  var lon1 = toRadians(c1[0]);
-  var dByR = distance / earthRadius;
-  var lat = Math.asin(
-    Math.sin(lat1) * Math.cos(dByR) + Math.cos(lat1) * Math.sin(dByR) * Math.cos(bearing)
-  );
-  var lon =
-    lon1 +
-    Math.atan2(
-      Math.sin(bearing) * Math.sin(dByR) * Math.cos(lat1),
-      Math.cos(dByR) - Math.sin(lat1) * Math.sin(lat)
+  function offset(c1, distance, bearing) {
+    var lat1 = toRadians(c1[1]);
+    var lon1 = toRadians(c1[0]);
+    var dByR = distance / defaultEarthRadius;
+    var lat = Math.asin(
+      Math.sin(lat1) * Math.cos(dByR) + Math.cos(lat1) * Math.sin(dByR) * Math.cos(bearing)
     );
-  return [toDegrees(lon), toDegrees(lat)];
-}
-
-module.exports = function circleToPolygon(center, radius, options) {
-  var n = getNumberOfEdges(options);
-  var earthRadius = getEarthRadius(options);
-  var bearing = getBearing(options);
-
-  // validateInput() throws error on invalid input and do nothing on valid input
-  validateInput({ center, radius, numberOfEdges: n, earthRadius, bearing });
-
-  var start = toRadians(bearing);
-  var coordinates = [];
-  for (var i = 0; i < n; ++i) {
-    coordinates.push(offset(center, radius, earthRadius, start + (2 * Math.PI * -i) / n));
+    var lon =
+      lon1 +
+      Math.atan2(
+        Math.sin(bearing) * Math.sin(dByR) * Math.cos(lat1),
+        Math.cos(dByR) - Math.sin(lat1) * Math.sin(lat)
+      );
+    return [toDegrees(lon), toDegrees(lat)];
   }
-  coordinates.push(coordinates[0]);
 
-  return {
-    type: "Polygon",
-    coordinates: [coordinates]
-  };
-};
+  return function circleToPolygon(center, radius, vectors) {
+    var n = vectors || 32;
+    var coordinates = [];
+    for (var i = 0; i < n; ++i) {
+      coordinates.push(offset(center, radius, (2 * Math.PI * -i) / n));
+    }
+    coordinates.push(coordinates[0]);
 
-function getNumberOfEdges(options) {
-  if (options === undefined) {
-    return 32;
-  } else if (isObjectNotArray(options)) {
-    var numberOfEdges = options.numberOfEdges;
-    return numberOfEdges === undefined ? 32 : numberOfEdges;
+    return {
+      type: "Polygon",
+      coordinates: [coordinates]
+    };
   }
-  return options;
-}
-
-function getEarthRadius(options) {
-  if (options === undefined) {
-    return defaultEarthRadius;
-  } else if (isObjectNotArray(options)) {
-    var earthRadius = options.earthRadius;
-    return earthRadius === undefined ? defaultEarthRadius : earthRadius;
-  }
-  return defaultEarthRadius;
-}
-
-function getBearing(options) {
-  if (options === undefined) {
-    return 0;
-  } else if (isObjectNotArray(options)) {
-    var bearing = options.bearing;
-    return bearing === undefined ? 0 : bearing;
-  }
-  return 0;
-}
-
-function isObjectNotArray(argument) {
-  return typeof argument === "object" && !Array.isArray(argument);
-}
+}));
